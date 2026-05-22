@@ -6,3 +6,4 @@ numpy
 torch
 torchvision
 openpyxl
+timm
