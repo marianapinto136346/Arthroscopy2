@@ -1,6 +1,8 @@
 streamlit
-pandas
-openpyxl
-ultralytics
 opencv-python-headless
+ultralytics
+pandas
 numpy
+torch
+torchvision
+openpyxl
