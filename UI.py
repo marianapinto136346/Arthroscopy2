@@ -112,6 +112,8 @@ with st.sidebar:
     st.markdown("<p style='text-align: center; color: #94A3B8; font-size: 12px;'>Arthroscopy Automated Assessment</p>", unsafe_allow_html=True)
     st.write("---")
     
+    # Alerta de estado do ficheiro na sidebar
+    st.markdown("### 🛠️ Monitor de Estado")
     uploaded_file = st.file_uploader(
         "📁 LOAD SURGICAL VIDEO", 
         type=["mp4", "avi", "mov", "mkv", "m4v", "mpg"]
@@ -120,6 +122,7 @@ with st.sidebar:
     st.write("---")
     if uploaded_file:
         st.success(f"CONNECTED: {uploaded_file.name}")
+        st.sidebar.warning("⚠️ Vídeo carregado em memória temporária. Pronto para análise.")
     else:
         st.info("No video selected")
 
@@ -145,13 +148,20 @@ st.markdown('</div>', unsafe_allow_html=True)
 
 # --- CARD 2: PAINEL DE EXECUÇÃO ---
 st.markdown('<div class="medical-card">', unsafe_allow_html=True)
-st.markdown('<h4 class="card-title">🩺 Clinical Diagnostic Engine</h4>', unsafe_allow_html=True)
+st.markdown('<h4 class="card-title">💡 Clinical Diagnostic Engine</h4>', unsafe_allow_html=True)
 
 col_btn, _ = st.columns([2, 3])
 with col_btn:
     execution_clicked = st.button("START AUTOMATED EVALUATION")
 
+# Alerta crítico para explicar porque é que a página parece fazer "reset"
+if not execution_clicked and "pipeline_rodou" not in st.session_state:
+    st.info("ℹ️ System Status: Idle. Carregue um vídeo e clique no botão acima para iniciar.")
+
 if execution_clicked:
+    # Registar no estado do Streamlit que a avaliação começou para evitar loops
+    st.session_state["pipeline_rodou"] = True
+    
     if not uploaded_file:
         st.error("Medical Alert: No surgical video has been loaded!")
     elif not selected_metrics:
@@ -160,13 +170,15 @@ if execution_clicked:
         st.error(f"System Error: Script missing ({MASTER_SCRIPT})")
     else:
         log_absoluto = os.path.join(os.path.dirname(os.path.abspath(__file__)), LOG_FILE)
-        if os.path.exists(log_absoluto):
-            os.remove(log_absoluto)
-            
-        status_warning = st.warning("🔬 Pipeline Active: Running Computer Vision models. Please wait...")
         
-        try:
-            # --- CORREÇÃO DE PREFIXO 'temp_' ---
+        # Criação de um contentor de status dinâmico (não deixa a página voltar ao topo)
+        with st.status("🔬 Processamento Ativo: O motor de IA está a trabalhar...", expanded=True) as status:
+            
+            st.write("1️⃣ Limpando registos de análises anteriores...")
+            if os.path.exists(log_absoluto):
+                os.remove(log_absoluto)
+            
+            st.write("2️⃣ Gravando o vídeo temporário no servidor de nuvem...")
             nome_original = uploaded_file.name
             if nome_original.startswith("temp_"):
                 nome_original = nome_original.replace("temp_", "", 1)
@@ -175,18 +187,20 @@ if execution_clicked:
             with open(temp_video_path, "wb") as f:
                 f.write(uploaded_file.getbuffer())
             
-            # Prepara os argumentos com caminhos absolutos baseados no executável global ativo
+            st.write("3️⃣ Inicializando o interpretador Python e alocando memória...")
             args = [sys.executable, MASTER_SCRIPT, temp_video_path] + selected_metrics
             pasta_atual = os.path.dirname(os.path.abspath(__file__))
             
-            # --- CONFIGURAÇÃO CIRÚRGICA DE VARIÁVEIS DE AMBIENTE ---
             env_atual = os.environ.copy()
-            env_atual["QT_QPA_PLATFORM"] = "offscreen"  # Bloqueia chamadas visuais em servidores headless
+            env_atual["QT_QPA_PLATFORM"] = "offscreen"  
             env_atual["OPENCV_LOG_LEVEL"] = "OFF"
             if "DISPLAY" not in env_atual:
                 env_atual["DISPLAY"] = ":0"
             
-            # Executa capturando explicitamente o stdout e o stderr de forma separada
+            st.write("4️⃣ Executando modelos de Visão Computacional (YOLOv8 + MiDaS Depth)...")
+            st.warning("⏳ Atenção: Esta etapa analisa frame por frame do vídeo. Não mude de página e não clique em mais nada até terminar!")
+            
+            # Executa capturando o processo externo
             resultado_processo = subprocess.run(
                 args, 
                 cwd=pasta_atual, 
@@ -196,118 +210,98 @@ if execution_clicked:
                 env=env_atual
             )
             
-            status_warning.empty()
-            
-            # --- INTERCEÇÃO E EXIBIÇÃO EXPLICITA DE ERROS DO PIPELINE ---
-            if resultado_processo.returncode != 0:
-                st.error(f"❌ O pipeline de IA falhou internamente! (Código de erro técnico: {resultado_processo.returncode})")
-                
-                # Exibe o rastreio do erro real do Python (Stderr)
-                st.markdown("### 🛑 Traceback / Erro Detalhado do Motor:")
-                if resultado_processo.stderr:
-                    st.code(resultado_processo.stderr, language="python")
-                else:
-                    st.warning("Nenhuma informação enviada para o canal Stderr.")
-                
-                # Exibe logs de print comuns disparados até ao momento do crash (Stdout)
-                st.markdown("### 📋 Fluxo de Saída Interrompido (Stdout):")
-                if resultado_processo.stdout:
-                    st.code(resultado_processo.stdout, language="text")
-                else:
-                    st.warning("Nenhuma informação enviada para o canal Stdout.")
-                
-                # Interrompe a execução para não quebrar a UI com tabelas vazias
-                st.stop()
-            
-            # Se correu perfeitamente (returncode == 0)
+            st.write("5️⃣ Finalizando o processamento dos VideoWriters externos...")
+            status.update(label="Análise Concluída! Renderizando tabelas...", state="complete", expanded=False)
+
+        # --- INTERCEÇÃO E EXIBIÇÃO EXPLICITA DE ERROS DO PIPELINE ---
+        if resultado_processo.returncode != 0:
+            st.error(f"❌ O pipeline de IA falhou internamente! (Código técnico: {resultado_processo.returncode})")
+            st.markdown("### 🛑 Traceback / Erro Detalhado do Motor:")
+            if resultado_processo.stderr:
+                st.code(resultado_processo.stderr, language="python")
+            st.stop()
+        
+        # Se correu perfeitamente
+        else:
+            if not os.path.exists(log_absoluto):
+                st.error("Data Error: O arquivo de resultados não foi gerado pelo script secundário.")
             else:
-                if not os.path.exists(log_absoluto):
-                    st.error("Data Error: No results file was generated.")
+                st.success("🎉 Análise Concluída com Sucesso!")
+                
+                resultados = []
+                with open(log_absoluto, "r") as f:
+                    for linha in f:
+                        if ":" in linha:
+                            partes = linha.strip().split(":")
+                            if len(partes) < 2: 
+                                continue
+                            metrica = partes[0].strip()
+                            try:
+                                nota_val = float(partes[1])
+                                if metrica in selected_metrics:
+                                    resultados.append({
+                                        "Metric": metrica,
+                                        "Score (1-5)": int(nota_val),
+                                        "Source Video": uploaded_file.name
+                                    })
+                            except ValueError:
+                                continue
+                
+                df = pd.DataFrame(resultados).drop_duplicates(subset=['Metric'], keep='last')
+                
+                if df.empty:
+                    st.warning("⚠️ Nenhuma métrica correspondente foi encontrada no log gerado.")
                 else:
-                    st.success("Analysis Completed Successfully!")
+                    st.subheader("Assessment Scores")
+                    st.dataframe(df, use_container_width=True)
                     
-                    resultados = []
-                    with open(log_absoluto, "r") as f:
-                        for linha in f:
-                            if ":" in linha:
-                                partes = linha.strip().split(":")
-                                if len(partes) < 2: 
-                                    continue
-                                metrica = partes[0].strip()
-                                try:
-                                    nota_val = float(partes[1])
-                                    if metrica in selected_metrics:
-                                        resultados.append({
-                                            "Metric": metrica,
-                                            "Score (1-5)": int(nota_val),
-                                            "Source Video": uploaded_file.name
-                                        })
-                                except ValueError:
-                                    continue
+                    nome_base = temp_video_path.split('.')[0]
+                    nome_aluno = nome_base.replace('_RAFT_ANALISE', '')
+                    pasta_saida_servidor = f"Avaliações_VID_{nome_aluno}"
                     
-                    df = pd.DataFrame(resultados).drop_duplicates(subset=['Metric'], keep='last')
+                    st.write("---")
+                    st.subheader("📥 Export Clinical Reports & Processed Videos")
                     
-                    if df.empty:
-                        st.warning("No matching metrics data found.")
+                    st.markdown('<div class="excel-btn">', unsafe_allow_html=True)
+                    buffer = io.BytesIO()
+                    with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+                        df.to_excel(writer, index=False, sheet_name='Surgical_Assessment')
+                    
+                    st.download_button(
+                        label="📊 DOWNLOAD EXCEL CLINICAL REPORT",
+                        data=buffer.getvalue(),
+                        file_name=f"REPORT_ASSET_{nome_aluno}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    )
+                    st.markdown('</div>', unsafe_allow_html=True)
+                    
+                    if os.path.exists(pasta_saida_servidor):
+                        col_v1, col_v2, col_v3 = st.columns(3)
+                        index_col = 0
+                        
+                        for m_nome, sufixo in SUFIXOS_VIDEOS.items():
+                            nome_video_esperado = f"{nome_aluno}_{sufixo}.mp4"
+                            caminho_completo_video = os.path.join(pasta_saida_servidor, nome_video_esperado)
+                            
+                            if os.path.exists(caminho_completo_video):
+                                alvo_col = [col_v1, col_v2, col_v3][index_col % 3]
+                                with alvo_col:
+                                    with open(caminho_completo_video, "rb") as vf:
+                                        st.download_button(
+                                            label=f"🎬 {m_nome}",
+                                            data=vf.read(),
+                                            file_name=nome_video_esperado,
+                                            mime="video/mp4",
+                                            key=f"dl_{sufixo}"
+                                        )
+                                index_col += 1
+                        
+                        if index_col == 0:
+                            st.info("No processed videos were found in the output folder.")
                     else:
-                        st.subheader("Assessment Scores")
-                        st.dataframe(df, use_container_width=True)
+                        st.error(f"Output folder not found: {pasta_saida_servidor}")
                         
-                        nome_base = temp_video_path.split('.')[0]
-                        nome_aluno = nome_base.replace('_RAFT_ANALISE', '')
-                        pasta_saida_servidor = f"Avaliações_VID_{nome_aluno}"
-                        
-                        st.write("---")
-                        st.subheader("📥 Export Clinical Reports & Processed Videos")
-                        
-                        st.markdown('<div class="excel-btn">', unsafe_allow_html=True)
-                        buffer = io.BytesIO()
-                        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
-                            df.to_excel(writer, index=False, sheet_name='Surgical_Assessment')
-                        
-                        st.download_button(
-                            label="📊 DOWNLOAD EXCEL CLINICAL REPORT",
-                            data=buffer.getvalue(),
-                            file_name=f"REPORT_ASSET_{nome_aluno}.xlsx",
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-                        )
-                        st.markdown('</div>', unsafe_allow_html=True)
-                        st.write("")
-                        
-                        if os.path.exists(pasta_saida_servidor):
-                            col_v1, col_v2, col_v3 = st.columns(3)
-                            index_col = 0
-                            
-                            for m_nome, sufixo in SUFIXOS_VIDEOS.items():
-                                nome_video_esperado = f"{nome_aluno}_{sufixo}.mp4"
-                                caminho_completo_video = os.path.join(pasta_saida_servidor, nome_video_esperado)
-                                
-                                if os.path.exists(caminho_completo_video):
-                                    alvo_col = [col_v1, col_v2, col_v3][index_col % 3]
-                                    with alvo_col:
-                                        with open(caminho_completo_video, "rb") as vf:
-                                            st.download_button(
-                                                label=f"🎬 {m_nome}",
-                                                data=vf.read(),
-                                                file_name=nome_video_esperado,
-                                                mime="video/mp4",
-                                                key=f"dl_{sufixo}"
-                                            )
-                                    index_col += 1
-                            
-                            if index_col == 0:
-                                st.info("No processed videos were found in the output folder.")
-                        else:
-                            st.error(f"Output folder not found: {pasta_saida_servidor}")
-                            
             if os.path.exists(temp_video_path):
                 os.remove(temp_video_path)
-                
-        except Exception as e:
-            status_warning.empty()
-            st.error(f"System Failure during execution: {e}")
-
-if not execution_clicked:
-    st.info("ℹ️ System Status: Idle. Load a video file via sidebar to begin diagnostic pipeline.")
 
 st.markdown('</div>', unsafe_allow_html=True)
