@@ -5,40 +5,34 @@ ASSET PROCESSOR - WEB & LOCAL UNIFIED (ON-THE-FLY ENGINE)
 import sys
 import os
 
-# --- 0. EMULAÇÃO COMPLETA DE DISPLAY PARA EVITAR ERRO DE LIBGL ---
+# --- 0. INTERCEÇÃO CIRÚRGICA DE DEPENDÊNCIAS DE BACKEND ---
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 
-# Forçar o Python a fingir que tem as bibliotecas gráficas do Linux carregadas
-if 'cv2' not in sys.modules:
-    import ctypes
-    try:
-        # Tenta carregar a biblioteca de gráficos nativa caso ela exista mascarada
-        ctypes.CDLL('libGL.so.1', mode=ctypes.RTLD_GLOBAL)
-    except OSError:
-        # Se não existir (caso do Streamlit Cloud), ligamos o PyOpenGL 
-        # para mapear as funções do sistema na memória e enganar o OpenCV
-        try:
-            import OpenGL
-            from OpenGL import GL
-            # Criamos um ponteiro falso na memória simulando a libGL
-            sys.modules['libGL.so.1'] = GL
-        except Exception:
-            pass
-
+# Se o interpretador carregar o OpenCV normal por engano, forçamos o isolamento técnico
 try:
     import cv2
 except ImportError as e:
-    # Se mesmo assim o ecossistema falhar, interceptamos o erro de ligação
-    # e forçamos o interpretador a usar rotinas puras de CPU
-    import importlib.util
-    spec = importlib.util.find_spec('cv2')
-    if spec is not None:
+    if "libGL.so.1" in str(e):
+        # Removemos qualquer link quebrado da memória de importação do Python
+        sys.modules.pop('cv2', None)
+        
+        # Truque mestre: Se a biblioteca headless estiver no sistema, forçamos a sua rota direta
+        # Isto evita que o Python use o especificador nativo com falhas do Linux
         try:
-            sys.modules['cv2'] = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(sys.modules['cv2'])
-        except Exception:
-            raise ImportError("Erro persistente no linker do OpenCV. Forçando override.")
+            import cv2
+        except ImportError:
+            # Caso o servidor misture os caminhos, criamos uma ponte de carregamento alternativa
+            import site
+            for path in site.getsitepackages():
+                headless_path = os.path.join(path, "cv2")
+                if os.path.exists(headless_path) and headless_path not in sys.path:
+                    sys.path.insert(0, headless_path)
+            
+            # Tenta a importação final limpa isolada de drivers do OS
+            import cv2
+    else:
+        raise e
 
 import cv2
 import numpy as np
@@ -47,6 +41,8 @@ import math
 import torch
 from ultralytics import YOLO
 from collections import deque
+
+# --- 1. CONFIGURAÇÕES E DIRETÓRIOS ---
 
 
 # --- 1. CONFIGURAÇÕES E DIRETÓRIOS ---
