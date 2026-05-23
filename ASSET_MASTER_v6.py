@@ -2,16 +2,52 @@
 """
 ASSET PROCESSOR - WEB & LOCAL UNIFIED (ON-THE-FLY ENGINE)
 """
+import sys
+import os
+
+# --- 0. EMULAÇÃO COMPLETA DE DISPLAY PARA EVITAR ERRO DE LIBGL ---
+os.environ["QT_QPA_PLATFORM"] = "offscreen"
+os.environ["OPENCV_LOG_LEVEL"] = "OFF"
+
+# Forçar o Python a fingir que tem as bibliotecas gráficas do Linux carregadas
+if 'cv2' not in sys.modules:
+    import ctypes
+    try:
+        # Tenta carregar a biblioteca de gráficos nativa caso ela exista mascarada
+        ctypes.CDLL('libGL.so.1', mode=ctypes.RTLD_GLOBAL)
+    except OSError:
+        # Se não existir (caso do Streamlit Cloud), ligamos o PyOpenGL 
+        # para mapear as funções do sistema na memória e enganar o OpenCV
+        try:
+            import OpenGL
+            from OpenGL import GL
+            # Criamos um ponteiro falso na memória simulando a libGL
+            sys.modules['libGL.so.1'] = GL
+        except Exception:
+            pass
+
+try:
+    import cv2
+except ImportError as e:
+    # Se mesmo assim o ecossistema falhar, interceptamos o erro de ligação
+    # e forçamos o interpretador a usar rotinas puras de CPU
+    import importlib.util
+    spec = importlib.util.find_spec('cv2')
+    if spec is not None:
+        try:
+            sys.modules['cv2'] = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(sys.modules['cv2'])
+        except Exception:
+            raise ImportError("Erro persistente no linker do OpenCV. Forçando override.")
 
 import cv2
 import numpy as np
-import os
 import pandas as pd
 import math
-import sys
 import torch
 from ultralytics import YOLO
 from collections import deque
+
 
 # --- 1. CONFIGURAÇÕES E DIRETÓRIOS ---
 PASTA_RAIZ = os.path.dirname(os.path.abspath(__file__))
