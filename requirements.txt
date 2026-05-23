@@ -1,5 +1,5 @@
 streamlit
-opencv-python-headless==4.13.0.92
+opencv-python-headless
 ultralytics
 pandas
 numpy
@@ -8,4 +8,3 @@ torchvision
 openpyxl
 timm
 pyopengl
-opencv-python==999.999.999; sys_platform == 'linux'
