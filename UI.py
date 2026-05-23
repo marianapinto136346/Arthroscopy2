@@ -231,7 +231,8 @@ if execution_clicked:
                         for linha in f:
                             if ":" in linha:
                                 partes = linha.strip().split(":")
-                                if len(partes) < 2: continue
+                                if len(partes) < 2: 
+                                    continue
                                 metrica = partes[0].strip()
                                 try:
                                     nota_val = float(partes[1])
@@ -241,8 +242,8 @@ if execution_clicked:
                                             "Score (1-5)": int(nota_val),
                                             "Source Video": uploaded_file.name
                                         })
-                                    except ValueError:
-                                        continue
+                                if ValueError:
+                                    continue
                     
                     df = pd.DataFrame(resultados).drop_duplicates(subset=['Metric'], keep='last')
                     
