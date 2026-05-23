@@ -5,32 +5,21 @@ ASSET PROCESSOR - WEB & LOCAL UNIFIED (ON-THE-FLY ENGINE)
 import sys
 import os
 
-# --- 0. INTERCEÇÃO CIRÚRGICA DE DEPENDÊNCIAS DE BACKEND ---
+# --- 0. CONFIGURAÇÃO ANTI-CRASH PARA AMBIENTES HEADLESS (NUVEM) ---
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 
-# Se o interpretador carregar o OpenCV normal por engano, forçamos o isolamento técnico
+# Se o Linux do Streamlit tentar forçar o carregamento do módulo gráfico nativo,
+# nós injetamos um "mock" no sistema de módulos para o Python ignorar o linker do OS.
 try:
     import cv2
 except ImportError as e:
     if "libGL.so.1" in str(e):
-        # Removemos qualquer link quebrado da memória de importação do Python
-        sys.modules.pop('cv2', None)
-        
-        # Truque mestre: Se a biblioteca headless estiver no sistema, forçamos a sua rota direta
-        # Isto evita que o Python use o especificador nativo com falhas do Linux
-        try:
-            import cv2
-        except ImportError:
-            # Caso o servidor misture os caminhos, criamos uma ponte de carregamento alternativa
-            import site
-            for path in site.getsitepackages():
-                headless_path = os.path.join(path, "cv2")
-                if os.path.exists(headless_path) and headless_path not in sys.path:
-                    sys.path.insert(0, headless_path)
-            
-            # Tenta a importação final limpa isolada de drivers do OS
-            import cv2
+        # Desativa a validação gráfica do módulo nativo
+        sys.modules['cv2.cv2'] = None
+        # Força o fallback para o backend matemático puro
+        os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
+        import cv2
     else:
         raise e
 
