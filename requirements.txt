@@ -1,6 +1,6 @@
 streamlit
-opencv-python-headless
-ultralytics
+opencv-python-headless==4.13.0.92
+ultralytics-headless
 pandas
 numpy
 torch
