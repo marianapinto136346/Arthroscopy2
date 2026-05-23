@@ -14,11 +14,9 @@ os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 try:
     import cv2
 except ImportError as e:
-    if "libGL.so.1" in str(e):
-        raise RuntimeError(
-            "OpenCV falhou: instalar libgl1 ou usar opencv-python-headless"
-        )
-    raise
+    raise RuntimeError(
+        f"OpenCV load failed: {e}"
+    )
 
 
 

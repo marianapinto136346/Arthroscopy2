@@ -1,9 +1,9 @@
-streamlit
-opencv-python-headless
+streamlit==1.57.0
+torch==2.12.0
+torchvision==0.27.0
+ultralytics==8.4.53
+opencv-python-headless==4.13.0.92
 numpy
 pandas
-torch
-torchvision
-ultralytics
 openpyxl
 timm
