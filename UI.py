@@ -242,7 +242,7 @@ if execution_clicked:
                                             "Score (1-5)": int(nota_val),
                                             "Source Video": uploaded_file.name
                                         })
-                                if ValueError:
+                                except ValueError:
                                     continue
                     
                     df = pd.DataFrame(resultados).drop_duplicates(subset=['Metric'], keep='last')
