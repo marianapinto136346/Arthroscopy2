@@ -18,7 +18,8 @@ except ImportError as e:
         f"OpenCV load failed: {e}"
     )
 
-
+import cv2
+print("OpenCV OK:", cv2.__version__)
 
 import cv2
 import numpy as np
