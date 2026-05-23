@@ -2,26 +2,24 @@
 """
 ASSET PROCESSOR - WEB & LOCAL UNIFIED (ON-THE-FLY ENGINE)
 """
-import sys
 import os
+import sys
 
-# --- 0. CONFIGURAÇÃO ANTI-CRASH PARA AMBIENTES HEADLESS (NUVEM) ---
+# --- 0. FORÇAR BACKEND SEM INTERFACE ---
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 os.environ["OPENCV_LOG_LEVEL"] = "OFF"
 
-# Se o Linux do Streamlit tentar forçar o carregamento do módulo gráfico nativo,
-# nós injetamos um "mock" no sistema de módulos para o Python ignorar o linker do OS.
+# Tenta importar o OpenCV. Se falhar por falta de libGL, 
+# avisamos que o packages.txt é necessário.
 try:
     import cv2
 except ImportError as e:
     if "libGL.so.1" in str(e):
-        # Desativa a validação gráfica do módulo nativo
-        sys.modules['cv2.cv2'] = None
-        # Força o fallback para o backend matemático puro
-        os.environ["OPENCV_VIDEOIO_PRIORITY_MSMF"] = "0"
-        import cv2
-    else:
-        raise e
+        print("ERRO CRÍTICO: Dependências do sistema ausentes.")
+        print("Certifique-se de que o arquivo 'packages.txt' existe no repositório com 'libgl1'.")
+    raise e
+
+
 
 import cv2
 import numpy as np
