@@ -15,9 +15,10 @@ try:
     import cv2
 except ImportError as e:
     if "libGL.so.1" in str(e):
-        print("ERRO CRÍTICO: Dependências do sistema ausentes.")
-        print("Certifique-se de que o arquivo 'packages.txt' existe no repositório com 'libgl1'.")
-    raise e
+        raise RuntimeError(
+            "OpenCV falhou: instalar libgl1 ou usar opencv-python-headless"
+        )
+    raise
 
 
 
@@ -150,8 +151,7 @@ def desenhar_painel_hud(img, lista_textos, cores):
     for i, (texto, cor) in enumerate(zip(lista_textos, cores)):
         pos_y = MARGEM_Y + (i * ALT_LINHA)
         cv2.putText(img, texto, (MARGEM_X, pos_y), FONTE, ESC, cor, ESP, cv2.LINE_AA)
-
-c      
+   
 cont_danos, cont_toque, cont_falhas_fluxo, cont_bruscos_fluxo = 0, 0, 0, 0
 ultimo_evento_reg, ultima_falha_reg, frame_ultimo_brusco = -int(fps*COOLDOWN_EVENTO), -int(fps), -999
 frames_com_yolo, frames_com_objeto_quality, frames_vistos_probe, frames_em_contato_alvo = 0, 0, 0, 0
