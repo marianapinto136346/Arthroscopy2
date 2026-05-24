@@ -18,6 +18,29 @@ except ImportError as e:
         f"OpenCV load failed: {e}"
     )
 
+import logging
+import traceback
+from datetime import datetime
+
+LOG_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    f"asset_debug_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s",
+    handlers=[
+        logging.FileHandler(LOG_FILE, encoding="utf-8"),
+        logging.StreamHandler()
+    ]
+)
+
+def log(msg):
+    logging.info(msg)
+
+log("=== INICIO ===")
+
 import cv2
 print("OpenCV OK:", cv2.__version__)
 
@@ -56,7 +79,7 @@ TEMPO_LIMITE_ESTATICO = 7.0
 TEMPO_LIMITE_AUSENCIA = 10.0 
 
 # --- 2. CONFIGURAÇÃO DO MODELO DE PROFUNDIDADE (MiDaS On-The-Fly) ---
-print("🔬 A carregar modelo de profundidade inteligente MiDaS (Small)...")
+log("🔬 A carregar modelo de profundidade inteligente MiDaS (Small)...")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model_type = "MiDaS_small"
 midas = torch.hub.load("intel-isl/MiDaS", model_type, trust_repo=True)
@@ -492,7 +515,7 @@ cap.release()
 # EXPORTAR CSV DE MOVIMENTO (PEDIDO EXPLICITO)
 df_novo_flow = pd.DataFrame({"magnitude_raft": valores_calculados_raft})
 df_novo_flow.to_csv(path_csv, index=False)
-print(f"✅ Ficheiro CSV de movimento gerado com sucesso em: {path_csv}")
+log(f"✅ Ficheiro CSV de movimento gerado com sucesso em: {path_csv}")
  
 # --- 6. CÁLCULO DAS NOTAS FINAIS ---
 if frame_idx == 0: sys.exit("Erro: Vídeo sem frames processados.")
@@ -617,7 +640,7 @@ with open(log_path, "w") as f:
         # mas a UI só mostrará no Excel as que o utilizador selecionou.
         f.write(f"{k}:{v}\n")
 
-print(f"Ficheiro de resultados gerado em: {log_path}")
+log(f"Ficheiro de resultados gerado em: {log_path}")
 
 # Guardar Resultados para a Interface Streamlit
 res_completo = {
@@ -634,7 +657,7 @@ with open(log_path, "w") as f:
 for writer in [video_safety_out, video_camera_out, video_instr_out, video_bimanual_out, video_flow_out, video_fov_out, video_autonomia_out]:
     if writer: writer.release()
 cv2.destroyAllWindows()
-print("🎉 Avaliação terminada com sucesso e ficheiros de vídeo guardados.")
+log("🎉 Avaliação terminada com sucesso e ficheiros de vídeo guardados.")
 for writer in [
     video_safety_out,
     video_camera_out,
@@ -652,13 +675,13 @@ cap.release()
 
 cv2.destroyAllWindows()
 
-print("EXPORT COMPLETA")
+log("EXPORT COMPLETA")
 
-print("PASTA:")
-print(pasta_final)
+log("PASTA:")
+log(pasta_final)
 
-print("RESULTADOS:")
-print(log_path)
+log("RESULTADOS:")
+log(log_path)
 
 
 
