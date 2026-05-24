@@ -254,22 +254,43 @@ while cap.isOpened():
     mov_global = np.median(mag)
 
     # B. ESTIMATIVA DE PROFUNDIDADE (ON-THE-FLY VIA MIDAS)
-    img_rgb = cv2.cvtColor(frame_proc, cv2.COLOR_BGR2RGB)
-    input_batch = transform(img_rgb).to(device)
-    with torch.no_grad():
-        prediction = midas(input_batch)
-        prediction = torch.nn.functional.interpolate(
-            prediction.unsqueeze(1),
-            size=img_rgb.shape[:2],
-            mode="bicubic",
-            align_corners=False,
-        ).squeeze()
-    depth_map = prediction.cpu().numpy()
-    # Normalização para escala cinzenta (0-255)
-    depth_gray = cv2.normalize(depth_map, None, 0, 255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    if frame_idx % 5 == 0:
+
+        img_rgb = cv2.cvtColor(frame_proc, cv2.COLOR_BGR2RGB)
+    
+        input_batch = transform(img_rgb).to(device)
+    
+        with torch.no_grad():
+    
+            prediction = midas(input_batch)
+    
+            prediction = torch.nn.functional.interpolate(
+                prediction.unsqueeze(1),
+                size=img_rgb.shape[:2],
+                mode="bicubic",
+                align_corners=False,
+            ).squeeze()
+    
+        depth_map = prediction.cpu().numpy()
+    
+        depth_gray = cv2.normalize(
+            depth_map,
+            None,
+            0,
+            255,
+            cv2.NORM_MINMAX,
+            cv2.CV_8U
+        )
 
     # C. DETEÇÃO YOLO
-    results = yolo_model.predict(frame_proc, conf=0.35, verbose=False)
+    if frame_idx % 2 == 0:
+
+        results = yolo_model.predict(
+            frame_proc,
+            conf=0.35,
+            imgsz=640,
+            verbose=False
+    )
     mask_probe = np.zeros((H_PROC, W_PROC), dtype=np.uint8)
     mask_alvos = np.zeros((H_PROC, W_PROC), dtype=np.uint8)
     alvos_atuais = {}
