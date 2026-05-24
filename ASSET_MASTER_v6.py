@@ -227,8 +227,13 @@ while cap.isOpened():
     horizontalidade_txt = "Horizontalidade: -"
     dist_centro_camara_txt = "Distancia ao centro: -"
     
-    frame_proc = frame_raw.copy()
-    frame_draw = frame_raw.copy()
+    frame_proc = cv2.resize(
+    frame_raw,
+    (W_PROC, H_PROC),
+    interpolation=cv2.INTER_AREA
+    )
+    
+    frame_draw = frame_proc.copy()
     gray_proc = cv2.cvtColor(frame_proc, cv2.COLOR_BGR2GRAY)
     gray_blur = cv2.GaussianBlur(gray_proc, (7,7), 0)
 
@@ -609,7 +614,30 @@ for writer in [video_safety_out, video_camera_out, video_instr_out, video_bimanu
     if writer: writer.release()
 cv2.destroyAllWindows()
 print("🎉 Avaliação terminada com sucesso e ficheiros de vídeo guardados.")
+for writer in [
+    video_safety_out,
+    video_camera_out,
+    video_instr_out,
+    video_bimanual_out,
+    video_flow_out,
+    video_fov_out,
+    video_autonomia_out
+]:
 
+    if writer:
+        writer.release()
+
+cap.release()
+
+cv2.destroyAllWindows()
+
+print("EXPORT COMPLETA")
+
+print("PASTA:")
+print(pasta_final)
+
+print("RESULTADOS:")
+print(log_path)
 
 
 
