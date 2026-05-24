@@ -92,19 +92,44 @@ fps = int(cap.get(cv2.CAP_PROP_FPS)) or 30
 
 W_ORIG = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 H_ORIG = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-escala_x, escala_y = 1.0, 1.0
-RAIO_FOV_CENTRO = int(H_ORIG * 0.15)
+
+TARGET_W = 640
+
+if W_ORIG > TARGET_W:
+    scale = TARGET_W / W_ORIG
+    W_PROC = TARGET_W
+    H_PROC = int(H_ORIG * scale)
+else:
+    W_PROC = W_ORIG
+    H_PROC = H_ORIG
+
+# escala entre processamento e original
+escala_x = W_ORIG / W_PROC
+escala_y = H_ORIG / H_PROC
+
+print(
+    f"Vídeo original: {W_ORIG}x{H_ORIG}"
+)
+print(
+    f"Processamento: {W_PROC}x{H_PROC}"
+)
+print(
+    f"Escalas: {escala_x:.2f}, {escala_y:.2f}"
+)
+
+
+RAIO_FOV_CENTRO = int(H_PROC * 0.15)
 
 # --- 4. CALIBRAÇÃO DINÂMICA DO CENTRO ---
 cap.set(cv2.CAP_PROP_POS_FRAMES, min(2000, int(cap.get(cv2.CAP_PROP_FRAME_COUNT))-5)) 
 ret, frame_ref = cap.read()
-centro_calibrado = (W_ORIG / 2, H_ORIG / 2) 
+centro_calibrado = (W_PROC / 2, H_PROC / 2) 
 
 if ret:
     gray_ref = cv2.cvtColor(frame_ref, cv2.COLOR_BGR2GRAY)
     blurred_ref = cv2.medianBlur(gray_ref, 7)
-    min_r = int(H_ORIG * 0.35)  
-    max_r = int(H_ORIG * 0.55)  
+    min_r = int(H_PROC * 0.35)  
+    max_r = int(H_PROC * 0.55)  
     circles = cv2.HoughCircles(blurred_ref, cv2.HOUGH_GRADIENT, dp=1.2, minDist=150, 
                                param1=50, param2=35, minRadius=min_r, maxRadius=max_r)
     if circles is not None:
@@ -120,7 +145,7 @@ fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
 def criar_writer(nome_metrica, sufixo):
     if nome_metrica in METRICAS_SELECIONADAS:
-        return cv2.VideoWriter(os.path.join(pasta_final, f"{NOME_ALUNO}_{sufixo}.mp4"), fourcc, fps, (W_ORIG, H_ORIG))
+        return cv2.VideoWriter(os.path.join(pasta_final, f"{NOME_ALUNO}_{sufixo}.mp4"), fourcc, fps, (W_PROC, H_PROC))
     return None
 
 video_safety_out = criar_writer("Safety", "SAFETY")
@@ -240,8 +265,8 @@ while cap.isOpened():
 
     # C. DETEÇÃO YOLO
     results = yolo_model.predict(frame_proc, conf=0.35, verbose=False)
-    mask_probe = np.zeros((H_ORIG, W_ORIG), dtype=np.uint8)
-    mask_alvos = np.zeros((H_ORIG, W_ORIG), dtype=np.uint8)
+    mask_probe = np.zeros((H_PROC, W_PROC), dtype=np.uint8)
+    mask_alvos = np.zeros((H_PROC, W_PROC), dtype=np.uint8)
     alvos_atuais = {}
     centro_probe_atual, probe_no_frame = None, False
 
@@ -264,7 +289,7 @@ while cap.isOpened():
                 cv2.fillPoly(mask_alvos, [pts], 255)
                 x1, y1, x2, y2 = box.xyxy[0]
                 alvos_atuais[label] = ((x1+x2)/2, (y1+y2)/2)
-                roi = gray_proc[max(0,int(y1)):min(H_ORIG,int(y2)), max(0,int(x1)):min(W_ORIG,int(x2))]
+                roi = gray_proc[max(0,int(y1)):min(H_PROC,int(y2)), max(0,int(x1)):min(W_PROC,int(x2))]
                 if roi.size > 0:
                     brilho = float(np.mean(roi))
                     historico_brilho_bruto.append(brilho)
@@ -293,8 +318,8 @@ while cap.isOpened():
             contador_intervencoes += 1
         frames_estaticos_consecutivos = 0
     
-    mask_analise = np.zeros((H_ORIG, W_ORIG), dtype=np.uint8)
-    cv2.circle(mask_analise, (int(centro_calibrado[0]), int(centro_calibrado[1])), int(H_ORIG//2.5), 255, -1)
+    mask_analise = np.zeros((H_PROC, W_PROC), dtype=np.uint8)
+    cv2.circle(mask_analise, (int(centro_calibrado[0]), int(centro_calibrado[1])), int(H_PROC//2.5), 255, -1)
     mask_alvos_dilatada = cv2.dilate(mask_alvos, np.ones((10,10), np.uint8))
     mask_tecido_limpa = cv2.bitwise_and(mask_analise, cv2.bitwise_not(mask_alvos_dilatada))
     mask_tecido_limpa = cv2.bitwise_and(mask_tecido_limpa, cv2.bitwise_not(mask_probe))
