@@ -4,6 +4,7 @@ ASSET PROCESSOR - WEB & LOCAL UNIFIED (ON-THE-FLY ENGINE)
 """
 import os
 import sys
+import streamlit as st
 
 # --- 0. FORÇAR BACKEND SEM INTERFACE ---
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -40,6 +41,37 @@ def log(msg):
     logging.info(msg)
 
 log("=== INICIO ===")
+
+import logging
+import os
+
+LOG_PATH = os.path.join(
+    os.path.dirname(__file__),
+    "asset_runtime.log"
+)
+
+logging.basicConfig(
+    filename=LOG_PATH,
+    level=logging.INFO,
+    format="%(asctime)s | %(message)s",
+    force=True
+)
+
+def log(msg):
+    print(msg)
+    logging.info(msg)
+
+log("SCRIPT INICIADO")
+
+if os.path.exists("asset_runtime.log"):
+    with open("asset_runtime.log","r") as f:
+        st.text_area(
+            "Logs",
+            f.read(),
+            height=400
+        )
+        
+        
 
 import cv2
 print("OpenCV OK:", cv2.__version__)
@@ -277,7 +309,10 @@ while cap.isOpened():
     mov_global = np.median(mag)
 
     # B. ESTIMATIVA DE PROFUNDIDADE (ON-THE-FLY VIA MIDAS)
+    log("ANTES MIDAS")
+
     if frame_idx % 5 == 0:
+        log(f"FRAME={frame_idx}")
 
         img_rgb = cv2.cvtColor(frame_proc, cv2.COLOR_BGR2RGB)
     
@@ -304,6 +339,8 @@ while cap.isOpened():
             cv2.NORM_MINMAX,
             cv2.CV_8U
         )
+    log("DEPOIS MIDAS")
+
 
     # C. DETEÇÃO YOLO
     if frame_idx % 2 == 0:
